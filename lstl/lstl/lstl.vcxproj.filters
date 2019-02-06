@@ -36,6 +36,12 @@
     <ClInclude Include="common.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="..\Include\optional.hpp">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="Test\optional_test.hpp">
+      <Filter>ヘッダー ファイル\Test</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
