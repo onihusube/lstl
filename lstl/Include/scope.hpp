@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <type_traits>
 #include <exception>
@@ -134,7 +134,7 @@ namespace lstl {
 
 		using Policy::release;
 
-		//ƒRƒs[•s‰Â
+		//ã‚³ãƒ”ãƒ¼ä¸å¯
 		common_scope_exit(const common_scope_exit&) = delete;
 		common_scope_exit& operator=(const common_scope_exit&) = delete;
 		common_scope_exit& operator=(common_scope_exit&&) = delete;
