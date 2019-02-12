@@ -124,19 +124,19 @@ namespace lstl {
 		* @brief デフォルトコンストラクタ
 		* @detail 指定されたExitFunctorがデフォルトコンストラクト可能であるときのみ有効
 		*/
-		constexpr common_scope_exit() noexcept(noexcept(std::is_nothrow_default_constructible<ExitFunctor>::value)) = default;
+		constexpr common_scope_exit() noexcept(std::is_nothrow_default_constructible<ExitFunctor>::value) = default;
 
 		/**
 		* @brief 関数オブジェクトをコピーして構築
 		*/
-		constexpr common_scope_exit(const ExitFunctor& functor) noexcept(noexcept(std::is_nothrow_copy_constructible<ExitFunctor>::value))
+		constexpr common_scope_exit(const ExitFunctor& functor) noexcept(std::is_nothrow_copy_constructible<ExitFunctor>::value)
 			: Storage{ functor }
 		{}
 
 		/**
 		* @brief 関数オブジェクトをムーブして構築
 		*/
-		constexpr common_scope_exit(ExitFunctor&& functor) noexcept(noexcept(std::is_nothrow_move_constructible<ExitFunctor>::value))
+		constexpr common_scope_exit(ExitFunctor&& functor) noexcept(std::is_nothrow_move_constructible<ExitFunctor>::value)
 			: Storage{ std::move(functor) }
 		{}
 
@@ -150,7 +150,7 @@ namespace lstl {
 		/**
 		* @brief ムーブコンストラクタ
 		*/
-		common_scope_exit(common_scope_exit&& other) noexcept(noexcept(std::conjunction<std::is_nothrow_move_constructible<Policy>, std::is_nothrow_move_constructible<ExitFunctor>>::value))
+		common_scope_exit(common_scope_exit&& other) noexcept(std::conjunction<std::is_nothrow_move_constructible<Policy>, std::is_nothrow_move_constructible<ExitFunctor>>::value)
 			: Policy{ other }
 			, Storage{ std::move(other) }
 		{
@@ -226,3 +226,5 @@ namespace lstl {
 
 #endif // __cpp_deduction_guides
 }
+
+#undef ENABLE_EBO

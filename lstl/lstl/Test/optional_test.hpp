@@ -18,6 +18,33 @@ namespace lstl::test::optional
 			int v = *n;
 
 			constexpr bool valid = bool(o);
+
+			lstl::optional<int> c{ n };
+			lstl::optional<int> m{ std::move(c) };
+		}
+
+		TEST_METHOD(has_value_test) {
+			constexpr lstl::optional<int> nullopt{};
+			constexpr lstl::optional<int> hasvalue{ 10 };
+
+			Assert::IsFalse(bool(nullopt));
+			Assert::IsTrue(bool(hasvalue));
+
+			Assert::IsFalse(nullopt.has_value());
+			Assert::IsTrue(hasvalue.has_value());
+		}
+
+		TEST_METHOD(reset_test) {
+			lstl::optional<int> hasvalue{ 10 };
+
+			Assert::IsTrue(bool(hasvalue));
+			Assert::IsTrue(hasvalue.has_value());
+
+			hasvalue.reset();
+
+			Assert::IsFalse(bool(hasvalue));
+			Assert::IsFalse(hasvalue.has_value());
+
 		}
 
 		TEST_METHOD(value_access_test) {
