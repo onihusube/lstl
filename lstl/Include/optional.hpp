@@ -35,7 +35,7 @@ namespace lstl {
 		}
 	};
 
-	namespace type_traits {
+	namespace optional_traits {
 
 		/**
 		* @brief 条件の論理積がtrueとなるときに有効化
@@ -96,8 +96,8 @@ namespace lstl {
 			{}
 
 			template<typename... Args>
-			constexpr optional_storage(Args&&... args)
-				: m_value{ std::forward<Args>(args)... }
+			constexpr optional_storage(Args&&... args) noexcept(std::is_constructible<hold_type, Args&&...>::value)
+				: m_value(std::forward<Args>(args)...)
 				, m_has_value{ true }
 			{}
 
@@ -138,8 +138,8 @@ namespace lstl {
 			{}
 
 			template<typename... Args>
-			constexpr optional_storage(Args&&... args)
-				: m_value{ std::forward<Args>(args)... }
+			constexpr optional_storage(Args&&... args) noexcept(std::is_constructible<hold_type, Args&&...>::value)
+				: m_value(std::forward<Args>(args)...)
 				, m_has_value{ true }
 			{}
 
@@ -157,8 +157,7 @@ namespace lstl {
 	public:
 		
 		static_assert(std::conjunction<std::is_object<T>, std::is_nothrow_destructible<T>>::value, "T shall be an object type and shall satisfy the requirements of Destructible. (N4659 23.6.3 [optional.optional]/3)");
-
-
+		
 		using value_type = T;
 
 		/**
@@ -173,11 +172,15 @@ namespace lstl {
 		constexpr optional(nullopt_t) noexcept : base_storage{ nullopt }
 		{}
 
+		optional(const optional&) = default;
+
+		optional(optional&&) = default;
+
 		/**
 		* @brief Tのコンストラクタ引数を受けて直接構築
 		* @param args Tに与える引数
 		*/
-		template<typename... Args, type_traits::enabler<std::is_constructible<T, Args&&...>> = nullptr>
+		template<typename... Args, optional_traits::enabler<std::is_constructible<T, Args&&...>> = nullptr>
 		constexpr explicit optional(in_place_t, Args&&... args) : base_storage{ std::forward<Args>(args)... }
 		{}
 
@@ -187,25 +190,27 @@ namespace lstl {
 		* @param il Tに与える初期化リスト
 		* @param args その他の引数
 		*/
-		template<typename U, typename... Args, type_traits::enabler<std::is_constructible<T, std::initializer_list<U>&, Args&&...>> = nullptr>
+		template<typename U, typename... Args, optional_traits::enabler<std::is_constructible<T, std::initializer_list<U>&, Args&&...>> = nullptr>
 		constexpr explicit optional(in_place_t, std::initializer_list<U> il, Args&&... args) : base_storage{ il, std::forward<Args>(args)... }
 		{}
 
 		/**
 		* @brief Tを初期化可能なUの値を受けて構築
 		* @detail allow_conversion<T, U> = true かつ is_convertible<U&&, T> = true の時にのみオーバーロードに参加
+		* @detail T→Uへ暗黙変換可能な場合のコンストラクタ
 		* @param value Tに変換可能なUの値
 		*/
-		template<typename U = T, type_traits::enabler<type_traits::allow_conversion<T, U>, std::is_convertible<U&&, T>> = nullptr>
+		template<typename U = T, optional_traits::enabler<optional_traits::allow_conversion<T, U>, std::is_convertible<U&&, T>> = nullptr>
 		constexpr optional(U&& value) : base_storage{ std::forward<U>(value) }
 		{}
 
 		/**
 		* @brief Tを初期化可能なUの値を受けて構築
-		* @detail allow_conversion<T, U> = true かつ is_convertible<U&&, T> = false の時にのみオーバーロードに参加（explicitが付くだけ）
+		* @detail allow_conversion<T, U> = true かつ is_convertible<U&&, T> = false の時にのみオーバーロードに参加
+		* @detail T→Uへ暗黙変換不可能な場合のコンストラクタ（explicitが付く）
 		* @param value Tに変換可能なUの値
 		*/
-		template<typename U = T, type_traits::enabler<type_traits::allow_conversion<T, U>, std::negation<std::is_convertible<U&&, T>>> = nullptr>
+		template<typename U = T, optional_traits::enabler<optional_traits::allow_conversion<T, U>, std::negation<std::is_convertible<U&&, T>>> = nullptr>
 		constexpr explicit optional(U&& value) : base_storage{ std::forward<U>(value) }
 		{}
 
@@ -214,8 +219,8 @@ namespace lstl {
 		* @detail allow_unwrap<T, U> = true かつ is_constructible<T, const U&> = true かつ is_convertible<const U&&, T> == true の時にのみオーバーロードに参加
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
-		template<typename U, type_traits::enabler<type_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::is_convertible<const U&&, T>> = nullptr>
-		optional(const optional<U>& rhs) {
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::is_convertible<const U&&, T>> = nullptr>
+		optional(const optional<U>& rhs) noexcept(noexcept(in_place_construct(*rhs))) {
 			if (rhs) {
 				in_place_construct(*rhs);
 			}
@@ -226,8 +231,8 @@ namespace lstl {
 		* @detail allow_unwrap<T, U> = true かつ is_constructible<T, const U&> = true かつ is_convertible<const U&&, T> == false の時にのみオーバーロードに参加（explicitが付くだけ）
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
-		template<typename U, type_traits::enabler<type_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::negation<std::is_convertible<const U&&, T>>> = nullptr>
-		explicit optional(const optional<U>& rhs) {
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::negation<std::is_convertible<const U&&, T>>> = nullptr>
+		explicit optional(const optional<U>& rhs) noexcept(noexcept(in_place_construct(*rhs))) {
 			if (rhs) {
 				in_place_construct(*rhs);
 			}
@@ -238,8 +243,8 @@ namespace lstl {
 		* @detail allow_unwrap<T, U> = true かつ is_constructible<T, U&&> = true かつ is_convertible<U&&, T> == true の時にのみオーバーロードに参加
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
-		template<typename U, type_traits::enabler<type_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::is_convertible<U&&, T>> = nullptr>
-		optional(optional<U>&& rhs) {
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::is_convertible<U&&, T>> = nullptr>
+		optional(optional<U>&& rhs) noexcept(noexcept(in_place_construct(std::move(*rhs)))) {
 			if (rhs) {
 				in_place_construct(std::move(*rhs));
 			}
@@ -250,8 +255,8 @@ namespace lstl {
 		* @detail allow_unwrap<T, U> = true かつ is_constructible<T, U&&> = true かつ is_convertible<U&&, T> == false の時にのみオーバーロードに参加（explicitが付くだけ）
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
-		template<typename U, type_traits::enabler<type_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::negation<std::is_convertible<U&&, T>>> = nullptr>
-		explicit optional(optional<U>&& rhs) {
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::negation<std::is_convertible<U&&, T>>> = nullptr>
+		explicit optional(optional<U>&& rhs) noexcept(noexcept(in_place_construct(std::move(*rhs)))) {
 			if (rhs) {
 				in_place_construct(std::move(*rhs));
 			}
@@ -333,14 +338,13 @@ namespace lstl {
 		* @return 初期化したオブジェクトへの参照
 		*/
 		template<typename... Args>
-		auto in_place_construct(Args&&... args) -> hold_type& {
+		auto in_place_construct(Args&&... args) noexcept(std::is_nothrow_constructible<hold_type, Args&&...>::value) -> hold_type& {
 			//placement new (msvc 2019 preview2の_Construct_in_place関数を参考)
 			::new (const_cast<void*>(static_cast<const volatile void*>(std::addressof(m_value)))) hold_type(std::forward<Args>(args)...);
 
 			m_has_value = true;
 			return m_value;
 		}
-
 	};
 
 
