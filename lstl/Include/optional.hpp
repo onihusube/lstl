@@ -79,6 +79,195 @@ namespace lstl {
 
 	namespace detail {
 
+		/**
+		* @brief コピー構築の有効化
+		*/
+		template<typename Base, typename T>
+		struct enable_copy_construct : public Base {
+			using Base::Base;
+
+			template<typename... Args>
+			constexpr enable_copy_construct(Args&&... args) noexcept(std::is_nothrow_constructible<Base, Args&&...>::value)
+				: Base{ std::forward<Args>(args)... }
+			{}
+
+			enable_copy_construct() = default;
+			enable_copy_construct(const enable_copy_construct& other) : Base{ nullopt }
+			{
+				Base::construct_from_other(static_cast<const Base&>(other));
+			}
+
+			enable_copy_construct(enable_copy_construct&&) = default;
+			enable_copy_construct& operator=(const enable_copy_construct&) = default;
+			enable_copy_construct& operator=(enable_copy_construct&&) = default;
+		};
+
+		/**
+		* @brief コピー構築のチェック
+		* @detail Tが非トリビアルにコピー構築可能であるとき、コピーコンストラクタを定義する
+		*/
+		template<typename Base, typename T>
+		using check_copy_construct = std::conditional_t<
+			std::conjunction<std::is_copy_constructible<T>, std::negation<std::is_trivially_copy_constructible<T>>>::value,
+			enable_copy_construct<Base, T>,
+			Base
+		>;
+
+		/**
+		* @brief ムーブ構築の有効化
+		*/
+		template<typename Base, typename T>
+		struct enable_move_construct : public check_copy_construct<Base, T> {
+			using base_t = check_copy_construct<Base, T>;
+			using base_t::base_t;
+
+			template<typename... Args>
+			constexpr enable_move_construct(Args&&... args) noexcept(std::is_nothrow_constructible<base_t, Args&&...>::value)
+				: base_t{ std::forward<Args>(args)... }
+			{}
+
+			enable_move_construct() = default;
+			enable_move_construct(const enable_move_construct&) = default;
+
+			enable_move_construct(enable_move_construct&& other) : base_t{ nullopt } 
+			{
+				base_t::construct_from_other(static_cast<Base&&>(other));
+			}
+
+			enable_move_construct& operator=(const enable_move_construct&) = default;
+			enable_move_construct& operator=(enable_move_construct&&) = default;
+		};
+
+		/**
+		* @brief ムーブ構築のチェック
+		* @detail Tが非トリビアルにムーブ構築可能であるとき、ムーブコンストラクタを定義する
+		*/
+		template<typename Base, typename T>
+		using check_move_construct = std::conditional_t<
+			std::conjunction<std::is_move_constructible<T>, std::negation<std::is_trivially_move_constructible<T>>>::value,
+			enable_move_construct<Base, T>,
+			check_copy_construct<Base, T>
+		>;
+
+		/**
+		* @brief コピー代入をdelete
+		*/
+		template<typename Base, typename T, bool = std::is_copy_constructible <T>::value, bool = std::is_copy_assignable<T>::value>
+		struct enable_copy_assign : check_move_construct<Base, T> {
+			using base_t = check_move_construct<Base, T>;
+			using base_t::base_t;
+
+			template<typename... Args>
+			constexpr enable_copy_assign(Args&&... args) noexcept(std::is_nothrow_constructible<base_t, Args&&...>::value)
+				: base_t{ std::forward<Args>(args)... }
+			{}
+
+			enable_copy_assign() = default;
+			enable_copy_assign(const enable_copy_assign&) = default;
+			enable_copy_assign(enable_copy_assign&&) = default;
+			enable_copy_assign& operator=(const enable_copy_assign&) = delete;
+			//Tはコピー構築/代入どちらかが不可なので、optional<T>のコピー代入は不可
+			enable_copy_assign& operator=(enable_copy_assign&&) = default;
+		};
+
+		/**
+		* @brief コピー代入を定義
+		* @detail Tがコピー構築可能であり、同時にコピー代入可能であるとき
+		*/
+		template<typename Base, typename T>
+		struct enable_copy_assign<Base, T, true, true> : check_move_construct<Base, T> {
+			using base_t = check_move_construct<Base, T>;
+			using base_t::base_t;
+
+			template<typename... Args>
+			constexpr enable_copy_assign(Args&&... args) noexcept(std::is_nothrow_constructible<base_t, Args&&...>::value)
+				: base_t{ std::forward<Args>(args)... }
+			{}
+
+			enable_copy_assign() = default;
+			enable_copy_assign(const enable_copy_assign&) = default;
+			enable_copy_assign(enable_copy_assign&&) = default;
+			enable_copy_assign& operator=(const enable_copy_assign& other) {
+				if (this != &other) {
+					base_t::assign_from_other(static_cast<const Base&>(other));
+				}
+				return *this;
+			}
+
+			enable_copy_assign& operator=(enable_copy_assign&& other) = default;
+		};
+
+		/**
+		* @brief コピー代入のチェック
+		*/
+		template<typename Base, typename T>
+		using check_copy_assign = std::conditional_t<
+			std::conjunction<std::is_trivially_destructible<T>, std::is_trivially_copy_constructible<T>, std::is_trivially_copy_assignable<T>>::value,
+			check_move_construct<Base, T>,
+			enable_copy_assign<Base, T>
+		>;
+
+		/**
+		* @brief ムーブ代入をdelete
+		*/
+		template<typename Base, typename T, bool = std::conjunction<std::is_move_constructible<T>, std::is_move_assignable<T>>::value>
+		struct enable_move_assign : public check_copy_assign<Base, T> {
+			using base_t = check_copy_assign<Base, T>;
+			using base_t::base_t;
+
+			template<typename... Args>
+			constexpr enable_move_assign(Args&&... args) noexcept(std::is_nothrow_constructible<base_t, Args&&...>::value)
+				: base_t{ std::forward<Args>(args)... }
+			{}
+
+			enable_move_assign() = default;
+			enable_move_assign(const enable_move_assign&) = default;
+			enable_move_assign(enable_move_assign&&) = default;
+			enable_move_assign& operator=(const enable_move_assign&) = default;
+			//Tはムーブ構築/代入どちらかが不可なので、optional<T>のムーブ代入は不可
+			enable_move_assign& operator=(enable_move_assign&&) = delete;
+		};
+
+		/**
+		* @brief ムーブ代入の定義
+		*/
+		template<typename Base, typename T>
+		struct enable_move_assign<Base, T, true> : public check_copy_assign<Base, T> {
+			using base_t = check_copy_assign<Base, T>;
+			using base_t::base_t;
+
+			template<typename... Args>
+			constexpr enable_move_assign(Args&&... args) noexcept(std::is_nothrow_constructible<base_t, Args&&...>::value)
+				: base_t{ std::forward<Args>(args)... }
+			{}
+
+			enable_move_assign() = default;
+			enable_move_assign(const enable_move_assign&) = default;
+			enable_move_assign(enable_move_assign&&) = default;
+			enable_move_assign& operator=(const enable_move_assign&) = default;
+
+			enable_move_assign& operator=(enable_move_assign&& other) {
+				if (this != &other) {
+					base_t::assign_from_other(static_cast<Base&&>(other));
+				}
+				return *this;
+			}
+		};
+
+		/**
+		* @brief optional<T>の特殊メンバ関数を有効化する（デストラクタ以外）
+		* @detail 下から上へあがっていきます
+		*/
+		template<typename Base, typename T>
+		using enable_special_menber_functions = std::conditional_t<
+			std::conjunction<std::is_trivially_destructible<T>, std::is_trivially_move_constructible<T>, std::is_trivially_move_assignable<T>>::value,
+			check_copy_assign<Base, T>,
+			enable_move_assign<Base, T>
+		>;
+	}
+
+	namespace detail {
+
 		template<typename T, bool = std::is_trivially_destructible<T>::value>
 		struct optional_storage {
 			using hold_type = std::remove_const_t<T>;
@@ -96,7 +285,7 @@ namespace lstl {
 			{}
 
 			template<typename... Args>
-			constexpr optional_storage(Args&&... args) noexcept(std::is_constructible<hold_type, Args&&...>::value)
+			constexpr optional_storage(Args&&... args) noexcept(std::is_nothrow_constructible<hold_type, Args&&...>::value)
 				: m_value(std::forward<Args>(args)...)
 				, m_has_value{ true }
 			{}
@@ -138,21 +327,86 @@ namespace lstl {
 			{}
 
 			template<typename... Args>
-			constexpr optional_storage(Args&&... args) noexcept(std::is_constructible<hold_type, Args&&...>::value)
+			constexpr optional_storage(Args&&... args) noexcept(std::is_nothrow_constructible<hold_type, Args&&...>::value)
 				: m_value(std::forward<Args>(args)...)
 				, m_has_value{ true }
 			{}
 
 			void reset() noexcept {
 				m_has_value = false;
+				//trivially destructibleな型はデストラクタ呼び出しの必要がない
+				//領域はこのoptionalオブジェクトの寿命終了とともに解放される
+			}
+		};
+
+		template<typename T>
+		struct optional_common_base : optional_storage<T> {
+			using optional_storage<T>::optional_storage;
+
+			template<typename... Args>
+			constexpr optional_common_base(Args&&... args) noexcept(std::is_nothrow_constructible<optional_storage<T>, Args&&...>::value)
+				: optional_storage<T>{ std::forward<Args>(args)... }
+			{}
+
+			/**
+			* @brief 領域の遅延初期化
+			* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
+			* @return 初期化したオブジェクトへの参照
+			*/
+			template<typename... Args>
+			auto construct(Args&&... args) noexcept(std::is_nothrow_constructible<hold_type, Args&&...>::value) -> hold_type& {
+				//placement new
+				::new (const_cast<void*>(static_cast<const volatile void*>(std::addressof(m_value)))) hold_type(std::forward<Args>(args)...);
+
+				m_has_value = true;
+				return m_value;
+			}
+
+			/**
+			* @brief 他optional<T>の値からのコピー/ムーブ代入
+			* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
+			*/
+			template<typename U>
+			void assign(U&& rhs) {
+				if (this->m_has_value) {
+					this->m_value = std::forward<U>(rhs);
+				}
+				else {
+					construct(std::forward<U>(rhs));
+				}
+			}
+
+			/**
+			* @brief 他optional<T>からのコピー/ムーブ構築
+			* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
+			*/
+			template<typename Optional>
+			void construct_from_other(Optional&& that) {
+				if (that.m_has_value) {
+					construct(std::forward<Optional>(that).m_value);
+				}
+			}
+
+			/**
+			* @brief 他optional<T>からのコピー/ムーブ代入
+			* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
+			*/
+			template<typename Optional>
+			void assign_from_other(Optional&& that) {
+				if (that.m_has_value) {
+					assign(std::forward<Optional>(that).m_value);
+				}
+				else {
+					this->reset();
+				}
 			}
 		};
 	}
 
 	template<typename T>
-	class optional : private detail::optional_storage<T> {
+	class optional : private detail::enable_special_menber_functions<detail::optional_common_base<T>, T> {
 		
-		using base_storage = detail::optional_storage<T>;
+		using base_storage = detail::enable_special_menber_functions<detail::optional_common_base<T>, T>;
 
 	public:
 		
@@ -172,8 +426,14 @@ namespace lstl {
 		constexpr optional(nullopt_t) noexcept : base_storage{ nullopt }
 		{}
 
+		/**
+		* @brief コピーコンストラクタ
+		*/
 		optional(const optional&) = default;
 
+		/**
+		* @brief ムーブコンストラクタ
+		*/
 		optional(optional&&) = default;
 
 		/**
@@ -220,9 +480,9 @@ namespace lstl {
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::is_convertible<const U&&, T>> = nullptr>
-		optional(const optional<U>& rhs) noexcept(noexcept(in_place_construct(*rhs))) {
+		optional(const optional<U>& rhs) noexcept(noexcept(construct(*rhs))) {
 			if (rhs) {
-				in_place_construct(*rhs);
+				construct(*rhs);
 			}
 		}
 
@@ -232,9 +492,9 @@ namespace lstl {
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, const U&>, std::negation<std::is_convertible<const U&&, T>>> = nullptr>
-		explicit optional(const optional<U>& rhs) noexcept(noexcept(in_place_construct(*rhs))) {
+		explicit optional(const optional<U>& rhs) noexcept(noexcept(construct(*rhs))) {
 			if (rhs) {
-				in_place_construct(*rhs);
+				construct(*rhs);
 			}
 		}
 
@@ -244,9 +504,9 @@ namespace lstl {
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::is_convertible<U&&, T>> = nullptr>
-		optional(optional<U>&& rhs) noexcept(noexcept(in_place_construct(std::move(*rhs)))) {
+		optional(optional<U>&& rhs) noexcept(noexcept(construct(std::move(*rhs)))) {
 			if (rhs) {
-				in_place_construct(std::move(*rhs));
+				construct(std::move(*rhs));
 			}
 		}
 
@@ -256,9 +516,9 @@ namespace lstl {
 		* @param rhs Tに変換可能なUをもつoptional
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap<T, U>, std::is_constructible<T, U&&>, std::negation<std::is_convertible<U&&, T>>> = nullptr>
-		explicit optional(optional<U>&& rhs) noexcept(noexcept(in_place_construct(std::move(*rhs)))) {
+		explicit optional(optional<U>&& rhs) noexcept(noexcept(construct(std::move(*rhs)))) {
 			if (rhs) {
-				in_place_construct(std::move(*rhs));
+				construct(std::move(*rhs));
 			}
 		}
 
@@ -329,22 +589,6 @@ namespace lstl {
 		}
 
 		using base_storage::reset;
-
-	private:
-
-		/**
-		* @brief 領域の遅延初期化
-		* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
-		* @return 初期化したオブジェクトへの参照
-		*/
-		template<typename... Args>
-		auto in_place_construct(Args&&... args) noexcept(std::is_nothrow_constructible<hold_type, Args&&...>::value) -> hold_type& {
-			//placement new (msvc 2019 preview2の_Construct_in_place関数を参考)
-			::new (const_cast<void*>(static_cast<const volatile void*>(std::addressof(m_value)))) hold_type(std::forward<Args>(args)...);
-
-			m_has_value = true;
-			return m_value;
-		}
 	};
 
 

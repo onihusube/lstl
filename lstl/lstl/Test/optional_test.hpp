@@ -23,7 +23,7 @@ namespace lstl::test::optional
 			lstl::optional<int> m{ std::move(c) };
 		}
 
-		TEST_METHOD(construct_test) {
+		TEST_METHOD(optional_construct_test) {
 			//1. デフォルトコンストラクタ
 			{
 				lstl::optional<int> n{};
@@ -48,8 +48,16 @@ namespace lstl::test::optional
 				Assert::AreEqual(10, *n);
 				Assert::AreEqual(10, *m);
 
-				//lstl::optional<std::string> str{ "string." };
-				//lstl::optional<std::string> str_copy{ str };
+				//trivially_copy_constructibleでない型
+				lstl::optional<std::string> str{ "string." };
+				lstl::optional<std::string> str_copy{ str };
+
+				Assert::IsTrue(str.has_value());
+				Assert::IsTrue(str_copy.has_value());
+
+				Assert::IsTrue("string." == *str);
+				Assert::IsTrue("string." == *str_copy);
+
 			}
 
 			//4. ムーブコンストラクタ
@@ -60,9 +68,14 @@ namespace lstl::test::optional
 
 				Assert::IsTrue(m.has_value());
 				Assert::AreEqual(10, *m);
-				
-				//lstl::optional<std::string> str{ "string." };
-				//lstl::optional<std::string> str_copy{ std::move(str) };
+
+				//trivially_move_constructibleでない型
+				lstl::optional<std::string> str{ "string." };
+				lstl::optional<std::string> str_copy{ std::move(str) };
+
+				Assert::IsTrue(str_copy.has_value());
+
+				Assert::IsTrue("string." == *str_copy);
 			}
 
 			//5.直接構築
@@ -115,7 +128,7 @@ namespace lstl::test::optional
 			}
 		}
 
-		TEST_METHOD(has_value_test) {
+		TEST_METHOD(optional_has_value_test) {
 			constexpr lstl::optional<int> nullopt{};
 			constexpr lstl::optional<int> hasvalue{ 10 };
 
@@ -126,7 +139,7 @@ namespace lstl::test::optional
 			Assert::IsTrue(hasvalue.has_value());
 		}
 
-		TEST_METHOD(reset_test) {
+		TEST_METHOD(optional_reset_test) {
 			lstl::optional<int> hasvalue{ 10 };
 
 			Assert::IsTrue(bool(hasvalue));
@@ -139,7 +152,7 @@ namespace lstl::test::optional
 
 		}
 
-		TEST_METHOD(value_access_test) {
+		TEST_METHOD(optional_value_access_test) {
 			constexpr lstl::optional<int> nullopt{};
 			constexpr lstl::optional<int> hasvalue{ 10 };
 

@@ -59,12 +59,16 @@ namespace lstl {
 	* @brief 継承可能なファンクタとそうでない関数ポインタとでストレージを切り替える実装
 	*/
 	namespace detail {
+
+		/**
+		* @brief 引数のない関数ポインタ用のストレージ基底
+		*/
 		template<typename R>
 		struct funcptr_storage {
-			R(*m_FuncPtr)();
+			R(*m_funcPtr)();
 
 			void operator()() {
-				m_FuncPtr();
+				m_funcPtr();
 			}
 		};
 
@@ -92,19 +96,58 @@ namespace lstl {
 		//	}
 		//};
 
-		template<typename Callable, typename... Args>
-		struct functor_storage_traits;
-
+		/**
+		* @brief 継承不可能な関数オブジェクト用のストレージ基底
+		*/
 		template<typename Callable>
-		struct functor_storage_traits<Callable> {
+		struct not_inheritable_storage {
+			Callable m_functor;
+
+			void operator()() {
+				m_functor();
+			}
+		};
+
+		/**
+		* @brief 関数オブジェクトに関して、基底を選択する
+		* @detail 継承可能な関数オブジェクト用
+		*/
+		template<typename Callable, bool = std::is_final<Callable>::value>
+		struct adapt_is_inheritable {
 			using type = Callable;
 		};
 
+		/**
+		* @brief 継承不可能な関数オブジェクト
+		*/
+		template<typename Callable>
+		struct adapt_is_inheritable<Callable, true> {
+			using type = not_inheritable_storage<Callable>;
+		};
+
+		/**
+		* @brief 与えられたCallableオブジェクトによってストレージとなる基底型を選択する
+		*/
+		template<typename Callable, typename... Args>
+		struct functor_storage_traits;
+
+		/**
+		* @brief 関数オブジェクト
+		*/
+		template<typename Callable>
+		struct functor_storage_traits<Callable> : adapt_is_inheritable<Callable> {};
+
+		/**
+		* @brief 関数ポインタ
+		*/
 		template<typename R>
 		struct functor_storage_traits<R(*)()> {
 			using type = funcptr_storage<R>;
 		};
 
+		/**
+		* @brief 関数ポインタ、引数あり
+		*/
 		template<typename R, typename Arg, typename... Args>
 		struct functor_storage_traits<R(*)(Arg, Args...)>;
 	}
@@ -210,19 +253,19 @@ namespace lstl {
 	scope_exit(R(Args...))->scope_exit<R(*)(Args...)>;
 
 	template<typename Functor>
-	scope_exit(Functor)->scope_exit<Functor>;
+	scope_exit(Functor&&)->scope_exit<std::remove_cv_t<std::remove_reference_t<Functor>>>;
 
 	template<typename R, typename... Args>
 	scope_fail(R(Args...))->scope_fail<R(*)(Args...)>;
 
 	template<typename Functor>
-	scope_fail(Functor)->scope_fail<Functor>;
+	scope_fail(Functor&&)->scope_fail<std::remove_cv_t<std::remove_reference_t<Functor>>>;
 
 	template<typename R, typename... Args>
 	scope_success(R(Args...))->scope_success<R(*)(Args...)>;
 
 	template<typename Functor>
-	scope_success(Functor)->scope_success<Functor>;
+	scope_success(Functor&&)->scope_success<std::remove_cv_t<std::remove_reference_t<Functor>>>;
 
 #endif // __cpp_deduction_guides
 }
