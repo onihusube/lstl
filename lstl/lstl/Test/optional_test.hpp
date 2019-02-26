@@ -128,6 +128,103 @@ namespace lstl::test::optional
 			}
 		}
 
+		TEST_METHOD(optional_assign_test) {
+			//1. 無効値の代入
+			{
+				lstl::optional<int> n{ 10 };
+
+				Assert::IsTrue(bool(n));
+
+				n = lstl::nullopt;
+
+				Assert::IsFalse(bool(n));
+			}
+
+			//2. コピー代入
+			{
+				lstl::optional<int> n{ 10 };
+				lstl::optional<int> m{ 0 };
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				Assert::AreEqual(10, *n);
+				Assert::AreEqual(0, *m);
+
+				n = m;
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				Assert::AreEqual(0, *n);
+				Assert::AreEqual(0, *m);
+			}
+
+			//3. ムーブ代入
+			{
+				lstl::optional<int> n{ 10 };
+				lstl::optional<int> m{ 0 };
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				Assert::AreEqual(10, *n);
+				Assert::AreEqual(0, *m);
+
+				n = std::move(m);
+
+				Assert::IsTrue(bool(n));
+
+				Assert::AreEqual(0, *n);
+			}
+
+			//4. 有効値を代入
+			{
+				lstl::optional<int> n{};
+
+				Assert::IsFalse(bool(n));
+
+				n = 10;
+
+				Assert::IsTrue(bool(n));
+
+				Assert::AreEqual(10, *n);
+			}
+
+			//5. 変換可能なoptionalを代入
+			{
+				lstl::optional<long long> n{1};
+				lstl::optional<int> m{10};
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				n = m;
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				long long expected = 10;
+				Assert::IsTrue(expected == *n);
+			}
+
+			//5. 変換可能なoptionalをムーブ代入
+			{
+				lstl::optional<long long> n{ 1 };
+				lstl::optional<int> m{ 10 };
+
+				Assert::IsTrue(bool(n));
+				Assert::IsTrue(bool(m));
+
+				n = std::move(m);
+
+				Assert::IsTrue(bool(n));
+
+				long long expected = 10;
+				Assert::IsTrue(expected == *n);
+			}
+		}
+
 		TEST_METHOD(optional_has_value_test) {
 			constexpr lstl::optional<int> nullopt{};
 			constexpr lstl::optional<int> hasvalue{ 10 };
@@ -137,6 +234,35 @@ namespace lstl::test::optional
 
 			Assert::IsFalse(nullopt.has_value());
 			Assert::IsTrue(hasvalue.has_value());
+		}
+
+		TEST_METHOD(optional_emplace_test) {
+			//通常のemplace
+			{
+				lstl::optional<std::string> p{};
+
+				p.emplace(3, 'A');
+
+				//同等のstring
+				std::string str(3, 'A');
+
+				Assert::IsTrue(p.has_value());
+				Assert::IsTrue(str == *p);
+			}
+
+			//初期化リストを受け取るemplace
+			{
+				lstl::optional<std::vector<int>> p;
+
+				std::allocator<int> alloc{};
+
+				p.emplace({ 3, 1, 4 }, std::move(alloc));
+
+				Assert::IsTrue(p.has_value());
+				Assert::AreEqual(3, (*p)[0]);
+				Assert::AreEqual(1, (*p)[1]);
+				Assert::AreEqual(4, (*p)[2]);
+			}
 		}
 
 		TEST_METHOD(optional_reset_test) {

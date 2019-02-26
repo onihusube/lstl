@@ -75,6 +75,17 @@ namespace lstl {
 				std::is_convertible<optional<U>&, T>, std::is_convertible<optional<U>&&, T>, std::is_convertible<const optional<U>&, T>, std::is_convertible<const optional<U>&&, T>
 			>
 		>;
+
+		template<typename T, typename U>
+		using allow_conversion_assign = std::conjunction<std::negation<std::is_same<optional<T>, std::decay_t<U>>>, std::negation<std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>>, std::is_constructible<T, U>, std::is_assignable<T&, U>>;
+
+		template<typename T, typename U>
+		using allow_unwrap_assign = std::conjunction<
+			allow_unwrap<T, U>,
+			std::negation<
+				std::disjunction<std::is_assignable<T&, optional<U>&>, std::is_assignable<T&, optional<U>&&>, std::is_assignable<T&, const optional<U>&>, std::is_assignable<T&, const optional<U>&&>>
+			>
+		>;
 	}
 
 	namespace detail {
@@ -187,7 +198,7 @@ namespace lstl {
 			enable_copy_assign() = default;
 			enable_copy_assign(const enable_copy_assign&) = default;
 			enable_copy_assign(enable_copy_assign&&) = default;
-			enable_copy_assign& operator=(const enable_copy_assign& other) {
+			enable_copy_assign& operator=(const enable_copy_assign& other) noexcept(std::conjunction<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_constructible<T>>::value) {
 				if (this != &other) {
 					base_t::assign_from_other(static_cast<const Base&>(other));
 				}
@@ -246,7 +257,7 @@ namespace lstl {
 			enable_move_assign(enable_move_assign&&) = default;
 			enable_move_assign& operator=(const enable_move_assign&) = default;
 
-			enable_move_assign& operator=(enable_move_assign&& other) {
+			enable_move_assign& operator=(enable_move_assign&& other) noexcept(std::conjunction<std::is_nothrow_move_assignable<T>, std::is_nothrow_move_constructible<T>>::value) {
 				if (this != &other) {
 					base_t::assign_from_other(static_cast<Base&&>(other));
 				}
@@ -522,10 +533,93 @@ namespace lstl {
 			}
 		}
 
-
+		/**
+		* @brief nulloptを代入する
+		* @detail 保持する値を開放する
+		* @return *this
+		*/
 		optional& operator=(nullopt_t) noexcept {
 			this->reset();
 			return *this;
+		}
+
+		/**
+		* @brief コピー代入
+		* @return *this
+		*/
+		optional& operator=(const optional&) = default;
+
+		/**
+		* @brief ムーブ代入
+		* @return *this
+		*/
+		optional& operator=(optional&&) = default;
+
+		/**
+		* @brief Tに変換可能な値の代入
+		* @return *this
+		*/
+		template<typename U, optional_traits::enabler<optional_traits::allow_conversion_assign<T, U>> = nullptr>
+		optional& operator==(U&& v) {
+			assign(std::forward<U>(v));
+			return *this;
+		}
+
+		/**
+		* @brief Tに変換可能なUを持つoptional<U>からのコピー代入
+		* @return *this
+		*/
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap_assign<T, U>, std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>> = nullptr>
+		optional& operator==(const optional<U>& rhs) {
+			if (rhs) {
+				assign(*rhs);
+			}
+			else {
+				reset();
+			}
+
+			return *this;
+		}
+
+		/**
+		* @brief Tに変換可能なUを持つoptional<U>からのムーブ代入
+		* @return *this
+		*/
+		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap_assign<T, U>, std::is_constructible<T, U>, std::is_assignable<T&, U>> = nullptr>
+		optional& operator==(optional<U>&& rhs) {
+			if (rhs) {
+				assign(std::move(*rhs));
+			}
+			else {
+				reset();
+			}
+
+
+			return *this;
+		}
+
+		/**
+		* @brief Tのコンストラクタ引数から直接構築する。
+		* @param args Tの構築に必要な引数列
+		* @return 構築した要素への参照
+		*/
+		template<typename... Args>
+		T& emplace(Args&&... args) {
+			reset();
+			return construct(std::forward<Args>(args)...);
+		}
+
+		/**
+		* @brief Tのコンストラクタ引数から直接構築する。
+		* @detail Tがinitializer_list<U>とArgs...から構築可能であるときのみオーバーロードに参加
+		* @param il Tに与える初期化リスト
+		* @param args Tの構築に必要な追加の引数列
+		* @return 構築した要素への参照
+		*/
+		template<typename U, typename... Args, optional_traits::enabler<std::is_constructible<T, std::initializer_list<U>&, Args&&...>> = nullptr>
+		T& emplace(std::initializer_list<U> il, Args&&... args) {
+			reset();
+			return construct(il, std::forward<Args>(args)...);
 		}
 
 		constexpr const T* operator->() const {
