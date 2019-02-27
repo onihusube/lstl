@@ -45,13 +45,6 @@ namespace lstl {
 		using enabler = std::enable_if_t<std::conjunction<Traits...>::value, std::nullptr_t>;
 
 		/**
-		* @brief 条件の論理積がfalseとなるときに有効化
-		* @tparam Traits 条件列、boolに変換可能な::valueを持つ任意のメタ関数
-		*/
-		template<typename... Traits>
-		using disabler = std::enable_if_t<std::conjunction<Traits...>::value == false, std::nullptr_t>;
-
-		/**
 		* @brief U → T への変換がoptionalの文脈で受け入れ可能かを調べる
 		* @detail TがU&&で構築可能　かつ　Uがin_place_t　ではなく　Uはoptional<T>　でもない、場合にtrueとなる
 		* @tparam T 変換先の型 
@@ -76,9 +69,22 @@ namespace lstl {
 			>
 		>;
 
+		/**
+		* @brief U → T への変換がoptionalへの代入の文脈で受け入れ可能かを調べる
+		* @detail Uがoptional<T>ではなく　かつ　Tがスカラ型 でも　T == decay_­t<U> でもなく TがUによって構築可能　かつT&はUを代入可能　である場合にtrueとなる
+		* @tparam T 変換先の型
+		* @tparam U 変換元の型
+		*/
 		template<typename T, typename U>
 		using allow_conversion_assign = std::conjunction<std::negation<std::is_same<optional<T>, std::decay_t<U>>>, std::negation<std::conjunction<std::is_scalar<T>, std::is_same<T, std::decay_t<U>>>>, std::is_constructible<T, U>, std::is_assignable<T&, U>>;
 
+		/**
+		* @brief optional<U> → optional<T> への変換がoptionalへの代入の文脈で受け入れ可能かを調べる
+		* @detail allow_unwrap<T, U>::value == true であり
+		* @detail T& へ いかなる形の参照のoptional<U>も代入不可能 であるときにtrue
+		* @tparam T 変換先の型
+		* @tparam U 変換元の型
+		*/
 		template<typename T, typename U>
 		using allow_unwrap_assign = std::conjunction<
 			allow_unwrap<T, U>,
@@ -279,6 +285,11 @@ namespace lstl {
 
 	namespace detail {
 
+		/**
+		* @brief std::optionalの実装のためのストレージ領域
+		* @detail trivially_destructibleでない型のための処理を提供
+		* @tparam T 格納する要素型
+		*/
 		template<typename T, bool = std::is_trivially_destructible<T>::value>
 		struct optional_storage {
 			using hold_type = std::remove_const_t<T>;
@@ -301,7 +312,7 @@ namespace lstl {
 				, m_has_value{ true }
 			{}
 
-			~optional_storage() {
+			~optional_storage() noexcept {
 				if (m_has_value == true) {
 					m_value.~hold_type();
 				}
@@ -321,6 +332,11 @@ namespace lstl {
 			}
 		};
 
+		/**
+		* @brief std::optionalの実装のためのストレージ領域
+		* @detail trivially_destructibleな型に最適化された処理を提供
+		* @tparam T 格納する要素型
+		*/
 		template<typename T>
 		struct optional_storage<T, true> {
 			using hold_type = std::remove_const_t<T>;
@@ -350,6 +366,11 @@ namespace lstl {
 			}
 		};
 
+		/**
+		* @brief std::optionalの実装のための土台
+		* @detail 共通の構築・代入に関わる処理を提供する
+		* @tparam T 格納する要素型
+		*/
 		template<typename T>
 		struct optional_common_base : optional_storage<T> {
 			using optional_storage<T>::optional_storage;
@@ -414,6 +435,11 @@ namespace lstl {
 		};
 	}
 
+	/**
+	* @brief std::optional、実装
+	* @detail 無効値を保持可能な型、maybeモナド
+	* @tparam T 格納する要素型、オブジェクト型であり、デストラクタが例外を投げずに実行可能であること
+	*/
 	template<typename T>
 	class optional : private detail::enable_special_menber_functions<detail::optional_common_base<T>, T> {
 		
@@ -559,8 +585,8 @@ namespace lstl {
 		* @brief Tに変換可能な値の代入
 		* @return *this
 		*/
-		template<typename U, optional_traits::enabler<optional_traits::allow_conversion_assign<T, U>> = nullptr>
-		optional& operator==(U&& v) {
+		template<typename U = T, optional_traits::enabler<optional_traits::allow_conversion_assign<T, U>> = nullptr>
+		optional& operator=(U&& v) {
 			assign(std::forward<U>(v));
 			return *this;
 		}
@@ -570,7 +596,7 @@ namespace lstl {
 		* @return *this
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap_assign<T, U>, std::is_constructible<T, const U&>, std::is_assignable<T&, const U&>> = nullptr>
-		optional& operator==(const optional<U>& rhs) {
+		optional& operator=(const optional<U>& rhs) {
 			if (rhs) {
 				assign(*rhs);
 			}
@@ -586,7 +612,7 @@ namespace lstl {
 		* @return *this
 		*/
 		template<typename U, optional_traits::enabler<optional_traits::allow_unwrap_assign<T, U>, std::is_constructible<T, U>, std::is_assignable<T&, U>> = nullptr>
-		optional& operator==(optional<U>&& rhs) {
+		optional& operator=(optional<U>&& rhs) {
 			if (rhs) {
 				assign(std::move(*rhs));
 			}

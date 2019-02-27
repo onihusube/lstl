@@ -189,6 +189,16 @@ namespace lstl::test::optional
 				Assert::IsTrue(bool(n));
 
 				Assert::AreEqual(10, *n);
+
+
+				lstl::optional<std::string> str{"string."};
+				Assert::IsTrue(bool(str));
+				Assert::IsTrue("string." == *str);
+
+				str = "string assigne.";
+
+				Assert::IsTrue(bool(str));
+				Assert::IsTrue("string assigne." == *str);
 			}
 
 			//5. 変換可能なoptionalを代入
