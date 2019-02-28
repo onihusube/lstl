@@ -92,8 +92,52 @@ namespace lstl {
 				std::disjunction<std::is_assignable<T&, optional<U>&>, std::is_assignable<T&, optional<U>&&>, std::is_assignable<T&, const optional<U>&>, std::is_assignable<T&, const optional<U>&&>>
 			>
 		>;
+
+		namespace no_adl_swap_impl {
+			void swap();
+
+			template<typename T, typename = void>
+			struct no_adl_swap : std::true_type {};
+
+			template<typename T>
+			struct no_adl_swap<T, std::void_t<decltype(swap(std::declval<T&>(), std::declval<T&>()))>> : std::false_type {};
+		}
+
+		/**
+		* @brief swapにかかる操作が全てtrivialであるかを調べる
+		* @detail trivially destructible かつ trivialにムーブ構築・代入可能で、独自のswap関数を持たない場合にtrue
+		* @tparam T 調べる型
+		*/
+		template<typename T>
+		using is_trivially_swappable = std::conjunction<std::is_trivially_destructible<T>, std::is_trivially_move_constructible<T>, std::is_trivially_move_assignable<T>, no_adl_swap_impl::no_adl_swap<T>>;
 	}
 
+#if defined(_MSC_VER) && _MSC_VER == 1900
+
+	/**
+	* @brief std::is_swappable
+	* @detail IntelliSenseエラー回避のため
+	*/
+	template<typename T>
+	using is_swappable = std::_Is_swappable<T>;
+
+	/**
+	* @brief std::is_nothrow_swappable
+	* @detail IntelliSenseエラー回避のため
+	*/
+	template<typename T>
+	using is_nothrow_swappable = std::_Is_nothrow_swappable<T>;
+
+#else
+
+	template<typename T>
+	using is_swappable = std::is_swappable<T>;
+
+	template<typename T>
+	using is_nothrow_swappable = std::is_nothrow_swappable<T>;
+
+#endif // defined(_MSC_VER) && _MSC_VER <= 1900
+	
 	namespace detail {
 
 		/**
@@ -108,7 +152,6 @@ namespace lstl {
 				: Base{ std::forward<Args>(args)... }
 			{}
 
-			enable_copy_construct() = default;
 			enable_copy_construct(const enable_copy_construct& other) : Base{ nullopt }
 			{
 				Base::construct_from_other(static_cast<const Base&>(other));
@@ -143,7 +186,6 @@ namespace lstl {
 				: base_t{ std::forward<Args>(args)... }
 			{}
 
-			enable_move_construct() = default;
 			enable_move_construct(const enable_move_construct&) = default;
 
 			enable_move_construct(enable_move_construct&& other) : base_t{ nullopt } 
@@ -179,7 +221,6 @@ namespace lstl {
 				: base_t{ std::forward<Args>(args)... }
 			{}
 
-			enable_copy_assign() = default;
 			enable_copy_assign(const enable_copy_assign&) = default;
 			enable_copy_assign(enable_copy_assign&&) = default;
 			enable_copy_assign& operator=(const enable_copy_assign&) = delete;
@@ -201,7 +242,6 @@ namespace lstl {
 				: base_t{ std::forward<Args>(args)... }
 			{}
 
-			enable_copy_assign() = default;
 			enable_copy_assign(const enable_copy_assign&) = default;
 			enable_copy_assign(enable_copy_assign&&) = default;
 			enable_copy_assign& operator=(const enable_copy_assign& other) noexcept(std::conjunction<std::is_nothrow_copy_assignable<T>, std::is_nothrow_copy_constructible<T>>::value) {
@@ -237,7 +277,6 @@ namespace lstl {
 				: base_t{ std::forward<Args>(args)... }
 			{}
 
-			enable_move_assign() = default;
 			enable_move_assign(const enable_move_assign&) = default;
 			enable_move_assign(enable_move_assign&&) = default;
 			enable_move_assign& operator=(const enable_move_assign&) = default;
@@ -258,7 +297,6 @@ namespace lstl {
 				: base_t{ std::forward<Args>(args)... }
 			{}
 
-			enable_move_assign() = default;
 			enable_move_assign(const enable_move_assign&) = default;
 			enable_move_assign(enable_move_assign&&) = default;
 			enable_move_assign& operator=(const enable_move_assign&) = default;
@@ -312,6 +350,10 @@ namespace lstl {
 				, m_has_value{ true }
 			{}
 
+			/**
+			* @brief デストラクタ
+			* @detail nothrow_destructibleな型を前提とするのでnoexcept
+			*/
 			~optional_storage() noexcept {
 				if (m_has_value == true) {
 					m_value.~hold_type();
@@ -324,6 +366,10 @@ namespace lstl {
 			optional_storage& operator=(const optional_storage&) = default;
 			optional_storage& operator=(optional_storage&&) = default;
 
+			/**
+			* @brief optionalを無効値保持状態にする
+			* @detail 保持する値を破棄し、has_value() == false となる
+			*/
 			void reset() noexcept {
 				if (m_has_value == true) {
 					m_value.~hold_type();
@@ -359,6 +405,10 @@ namespace lstl {
 				, m_has_value{ true }
 			{}
 
+			/**
+			* @brief optionalを無効値保持状態にする
+			* @detail has_value() == false となる
+			*/
 			void reset() noexcept {
 				m_has_value = false;
 				//trivially destructibleな型はデストラクタ呼び出しの必要がない
@@ -421,7 +471,6 @@ namespace lstl {
 
 			/**
 			* @brief 他optional<T>からのコピー/ムーブ代入
-			* @detail 事前条件として、m_has_value == falseであること（呼び出し側で保証する）
 			*/
 			template<typename Optional>
 			void assign_from_other(Optional&& that) {
@@ -431,6 +480,41 @@ namespace lstl {
 				else {
 					this->reset();
 				}
+			}
+
+			/**
+			* @brief swap実装、ストレージごと入れ替える
+			*/
+			template<typename U=T, optional_traits::enabler<optional_traits::is_trivially_swappable<U>> = nullptr>
+			void swap_impl(optional_common_base<U>& rhs) {
+				using storage = optional_storage<T>;
+				std::swap(static_cast<storage&>(*this), static_cast<storage&>(rhs));
+			}
+
+			/**
+			* @brief swap実装、きちんとswap
+			*/
+			template<typename U, optional_traits::enabler<std::negation<optional_traits::is_trivially_swappable<U>>> = nullptr>
+			void swap_impl(optional_common_base<U>& rhs) {
+				using std::swap;
+
+				if (m_has_value) {
+					if (rhs.m_has_value) {
+						//両方有効値を保持している
+						swap(m_value, rhs.m_value);
+					}
+					else {
+						//rhsが有効値を保持していない
+						rhs.construct(std::move(m_value));
+						reset();
+					}
+				}
+				else if (rhs.m_has_value) {
+					//*thisが有効値を保持しない
+					construct(std::move(rhs.m_value));
+					rhs.reset();
+				}
+				//両方が有効値を保持していない
 			}
 		};
 	}
@@ -465,11 +549,13 @@ namespace lstl {
 
 		/**
 		* @brief コピーコンストラクタ
+		* @detail Tがtrivially destructibleであればconstexprかつnoexcept
 		*/
 		optional(const optional&) = default;
 
 		/**
 		* @brief ムーブコンストラクタ
+		* @detail Tがtrivially destructibleであればconstexprかつnoexcept
 		*/
 		optional(optional&&) = default;
 
@@ -571,12 +657,14 @@ namespace lstl {
 
 		/**
 		* @brief コピー代入
+		* @detail Tがtrivially destructibleであればconstexprかつnoexcept
 		* @return *this
 		*/
 		optional& operator=(const optional&) = default;
 
 		/**
 		* @brief ムーブ代入
+		* @detail Tがtrivially destructibleであればconstexprかつnoexcept
 		* @return *this
 		*/
 		optional& operator=(optional&&) = default;
@@ -648,6 +736,18 @@ namespace lstl {
 			return construct(il, std::forward<Args>(args)...);
 		}
 
+		/**
+		* @brief 他のoptional<T>とデータを入れ替える
+		* @tparam U U=Tでなければならない
+		* @detail Tがムーブ構築可能かつSwappableであること
+		* @param rhs swapするoptional
+		*/
+		template<typename U = T, optional_traits::enabler<std::is_same<T, U>, std::is_move_constructible<T>, is_swappable<T>> = nullptr>
+		void swap(optional<U>& rhs) noexcept(std::conjunction<std::is_nothrow_move_constructible<T>, is_nothrow_swappable<T>>::value) {
+			//効率的なswapを選択するために、base_storageへ投げる
+			swap_impl(rhs);
+		}
+
 		constexpr const T* operator->() const {
 			return std::addressof(m_value);
 		}
@@ -688,15 +788,26 @@ namespace lstl {
 			return (m_has_value) ? std::move(m_value) : (throw bad_optional_access{}, m_value);
 		}
 
-		template<typename U>
+
+		/**
+		* @brief 内部の値か、それが無ければ指定した値を返す
+		* @detail Tが_copy_constructible　かつ　U&& → Tへ変換可能であること
+		* @param v 無効値だった時に返す値
+		*/
+		template<typename U, optional_traits::enabler<std::is_copy_constructible<T>, std::is_convertible<U&&, T>> = nullptr>
 		constexpr T value_or(U&& v) const & {
-			static_assert(std::conjunction<std::is_copy_constructible<T>, std::is_convertible<U&&, T>>::value, "If is_­copy_­constructible_­v<T> && is_­convertible_­v<U&&, T> is false, the program is ill-formed. (N4659 23.6.3.5 [optional.observe]/18)");
+			//static_assert(std::conjunction<std::is_copy_constructible<T>, std::is_convertible<U&&, T>>::value, "If is_­copy_­constructible_­v<T> && is_­convertible_­v<U&&, T> is false, the program is ill-formed. (N4659 23.6.3.5 [optional.observe]/18)");
 			return (m_has_value) ? m_value : static_cast<T>(std::forward<U>(v));
 		}
 
-		template<typename U>
-		T value_or(U&& v) && {
-			static_assert(std::conjunction<std::is_move_constructible<T>, std::is_convertible<U&&, T>>::value, "If is_­copy_­constructible_­v<T> && is_­convertible_­v<U&&, T> is false, the program is ill-formed. (N4659 23.6.3.5 [optional.observe]/18)");
+		/**
+		* @brief 内部の値か、それが無ければ指定した値を返す（右辺値用）
+		* @detail Tが_copy_constructible　かつ　U&& → Tへ変換可能であること
+		* @param v 無効値だった時に返す値
+		*/
+		template<typename U, optional_traits::enabler<std::is_copy_constructible<T>, std::is_convertible<U&&, T>> = nullptr>
+		constexpr T value_or(U&& v) const && {
+			//static_assert(std::conjunction<std::is_move_constructible<T>, std::is_convertible<U&&, T>>::value, "If is_­copy_­constructible_­v<T> && is_­convertible_­v<U&&, T> is false, the program is ill-formed. (N4659 23.6.3.5 [optional.observe]/18)");
 			return (m_has_value) ? std::move(m_value) : static_cast<T>(std::forward<U>(v));
 		}
 
@@ -744,6 +855,17 @@ namespace lstl {
 	template<>
 	struct optional<volatile in_place_t>;
 
+	/**
+	* @brief optional同士のデータを入れ替える
+	* @detail Tがムーブ構築可能かつSwappableであること
+	* @detail x.swap(y)を行う
+	* @param x swapするoptional
+	* @param y swapするoptional
+	*/
+	template<typename T, optional_traits::enabler<std::is_move_constructible<T>, is_swappable<T>> = nullptr>
+	void swap(optional<T>& x, optional<T>& y) noexcept(noexcept(x.swap(y))) {
+		x.swap(y);
+	}
 
 	/**
 	* @brief optionalを構築する

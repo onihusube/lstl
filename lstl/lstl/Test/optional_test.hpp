@@ -275,6 +275,96 @@ namespace lstl::test::optional
 			}
 		}
 
+		TEST_METHOD(optional_swap_test) {
+			//1. 両方とも有効値を持つ場合
+			{
+				lstl::optional<int> a = 3;
+				lstl::optional<int> b = 1;
+
+				//aとbを入れ替える
+				lstl::swap(a, b);
+
+				Assert::AreEqual(1, *a);
+				Assert::AreEqual(3, *b);
+
+				//非trivially destructibleな型
+				lstl::optional<std::string> c{ "string 1." };
+				lstl::optional<std::string> d{ "string 2." };
+
+				//aとbを入れ替える
+				lstl::swap(c, d);
+
+				Assert::IsTrue("string 2." == *c);
+				Assert::IsTrue("string 1." == *d);
+			}
+
+			//2. 左側が有効値を持たない場合
+			{
+				lstl::optional<int> a{};
+				lstl::optional<int> b = 1;
+
+				//aとbを入れ替える
+				lstl::swap(a, b);
+
+				Assert::AreEqual(1, *a);
+				Assert::IsFalse(b.has_value());
+
+				//非trivially destructibleな型
+				lstl::optional<std::string> c{};
+				lstl::optional<std::string> d{ "string" };
+
+				//aとbを入れ替える
+				lstl::swap(c, d);
+
+				Assert::IsTrue("string" == *c);
+				Assert::IsFalse(d.has_value());
+			}
+
+			//3. 右側が有効値を持たない場合
+			{
+				lstl::optional<int> a = 1;
+				lstl::optional<int> b{};
+
+				//aとbを入れ替える
+				lstl::swap(a, b);
+
+				Assert::IsFalse(a.has_value());
+				Assert::AreEqual(1, *b);
+
+				//非trivially destructibleな型
+				lstl::optional<std::string> c{ "string" };
+				lstl::optional<std::string> d{};
+
+				//aとbを入れ替える
+				lstl::swap(c, d);
+
+				Assert::IsFalse(c.has_value());
+				Assert::IsTrue("string" == *d);
+			}
+
+			//3. 両方有効値を持たない場合
+			{
+				lstl::optional<int> a{};
+				lstl::optional<int> b{};
+
+				//aとbを入れ替える
+				lstl::swap(a, b);
+
+				Assert::IsFalse(a.has_value());
+				Assert::IsFalse(b.has_value());
+
+				//非trivially destructibleな型
+				lstl::optional<std::string> c{};
+				lstl::optional<std::string> d{};
+
+				//aとbを入れ替える
+				lstl::swap(c, d);
+
+				Assert::IsFalse(c.has_value());
+				Assert::IsFalse(d.has_value());
+			}
+		}
+
 		TEST_METHOD(optional_reset_test) {
 			lstl::optional<int> hasvalue{ 10 };
 
