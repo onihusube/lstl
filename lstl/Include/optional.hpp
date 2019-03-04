@@ -488,7 +488,11 @@ namespace lstl {
 			template<typename U=T, optional_traits::enabler<optional_traits::is_trivially_swappable<U>> = nullptr>
 			void swap_impl(optional_common_base<U>& rhs) {
 				using storage = optional_storage<T>;
-				std::swap(static_cast<storage&>(*this), static_cast<storage&>(rhs));
+
+				//どちらか片方が有効値を保持している場合に入れ替え
+				if (m_has_value || rhs.m_has_value) {
+					std::swap(static_cast<storage&>(*this), static_cast<storage&>(rhs));
+				}
 			}
 
 			/**
@@ -822,6 +826,351 @@ namespace lstl {
 		using base_storage::reset;
 	};
 
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @return 片方だけ有効ならfalse、両方とも有効でないならtrue、両方有効なら中身を比較（==）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator==(const optional<T>& lhs, const optional<U>& rhs) {
+		//片方だけが有効値を保持する場合はfalse
+		//両方とも有効値を保持しないならtrue
+		//両方とも有効値を保持するならばそれを比較
+		return (bool(lhs) != bool(rhs))
+			? (false)
+			: ((bool(lhs) == false)
+				? (true)
+				: (*lhs == *rhs));
+	}
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @return 片方だけ有効ならtrue、両方とも有効でないならfalse、両方有効なら中身を比較（!=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator!=(const optional<T>& lhs, const optional<U>& rhs) {
+		return !(lhs == rhs);
+	}
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @detail 比較において、nulloptは無限小であるかのようにふるまう
+	* @return 右辺が無効値ならfalse、左辺が無効値ならtrue、両方有効なら中身を比較（<）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<(const optional<T>& lhs, const optional<U>& rhs) {
+		//右辺が無効値ならfalse
+		//左辺が無効値ならtrue
+		//両方とも有効ならそれを比較
+		return (bool(rhs) == false)
+			? (false)
+			: (bool(lhs) == false
+				? (true)
+				: (*lhs < *rhs));
+	}
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @detail 比較において、nulloptは無限小であるかのようにふるまう
+	* @return 右辺が無効値ならfalse、左辺が無効値ならtrue、両方有効なら中身を比較（>）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>(const optional<T>& lhs, const optional<U>& rhs) {
+		return rhs < lhs;
+	}
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @detail 比較において、nulloptは無限小であるかのようにふるまう
+	* @return 右辺が無効値ならtrue、左辺が無効値ならfalse、両方有効なら中身を比較（<=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<=(const optional<T>& lhs, const optional<U>& rhs) {
+		return !(rhs < lhs);
+	}
+
+	/**
+	* @brief 比較可能なoptional同士の比較
+	* @param lhs 右辺
+	* @param rhs 左辺
+	* @detail 比較において、nulloptは無限小であるかのようにふるまう
+	* @return 右辺が無効値ならtrue、左辺が無効値ならfalse、両方有効なら中身を比較（>=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>=(const optional<T>& lhs, const optional<U>& rhs) {
+		return !(lhs < rhs);
+	}
+
+
+	/**
+	* @brief nulloptとの比較
+	* @param x 左辺
+	* @return !x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator==(const optional<T>& x, nullopt_t) noexcept {
+		return !bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @param x 右辺
+	* @return !x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator==(nullopt_t, const optional<T>& x) noexcept {
+		return !bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @param x 比較するoptional
+	* @return x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator!=(const optional<T>& x, nullopt_t) noexcept {
+		return bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @param x 比較するoptional
+	* @return x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator!=(nullopt_t, const optional<T>& x) noexcept {
+		return bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return false
+	*/
+	template<typename T>
+	constexpr bool operator<(const optional<T>& x, nullopt_t) noexcept {
+		return false;
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator<(nullopt_t, const optional<T>& x) noexcept {
+		return bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator>(const optional<T>& x, nullopt_t) noexcept {
+		return bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return false
+	*/
+	template<typename T>
+	constexpr bool operator>(nullopt_t, const optional<T>& x) noexcept {
+		return false;
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return !x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator<=(const optional<T>& x, nullopt_t) noexcept {
+		return !bool(x);
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return true
+	*/
+	template<typename T>
+	constexpr bool operator<=(nullopt_t, const optional<T>& x) noexcept {
+		return true;
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return true
+	*/
+	template<typename T>
+	constexpr bool operator>=(const optional<T>& x, nullopt_t) noexcept {
+		return true;
+	}
+
+	/**
+	* @brief nulloptとの比較
+	* @detail nulloptは無限小であるかのようにふるまう
+	* @param x 比較するoptional
+	* @return !x.has_value()
+	*/
+	template<typename T>
+	constexpr bool operator>=(nullopt_t, const optional<T>& x) noexcept {
+		return !bool(x);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（==）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator==(const optional<T>& x, const U& v) {
+		return (bool(x)) ? (*x == v) : false;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（==）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator==(const U& v, const optional<T>& x) {
+		return (bool(x)) ? (*x == v) : false;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（!=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator!=(const optional<T>& x, const U& v) {
+		return !(x == v);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（!=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator!=(const U& v, const optional<T>& x) {
+		return !(x == v);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（<）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<(const optional<T>& x, const U& v) {
+		return (bool(x)) ? (*x < v) : true;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（<）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<(const U& v, const optional<T>& x) {
+		return (bool(x)) ? (v < *x) : false;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（>）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>(const optional<T>& x, const U& v) {
+		return v < x;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（>）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>(const U& v, const optional<T>& x) {
+		return x < v;
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（<=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<=(const optional<T>& x, const U& v) {
+		return !(v < x);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（<=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator<=(const U& v, const optional<T>& x) {
+		return !(x < v);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならfalse、有効なら中身とvを比較（>=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>=(const optional<T>& x, const U& v) {
+		return !(x < v);
+	}
+
+	/**
+	* @brief optional<T>と素の値の比較
+	* @param x 比較するoptional
+	* @param v 比較するオブジェクト
+	* @return xが無効値ならtrue、有効なら中身とvを比較（>=）
+	*/
+	template<typename T, typename U>
+	constexpr bool operator>=(const U& v, const optional<T>& x) {
+		return !(v < x);
+	}
 
 	//参照型、nullopt_tとin_place_t及びそのCV修飾はoptionalの要素になれない
 

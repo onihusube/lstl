@@ -397,6 +397,213 @@ namespace lstl::test::optional
 
 		}
 
+		TEST_METHOD(optional_relational_operators_test) {
+			constexpr lstl::optional<int> n = -1;
+			constexpr lstl::optional<int> z = 0;
+			constexpr lstl::optional<int> p = 1;
+			constexpr lstl::optional<int> nullopt{};
 
+			//operator==
+			Assert::IsTrue(z == z);
+			Assert::IsTrue(p == p);
+			Assert::IsTrue(n == n);
+			Assert::IsTrue(nullopt == nullopt);
+
+			Assert::IsFalse(z == nullopt);
+			Assert::IsFalse(p == nullopt);
+			Assert::IsFalse(n == nullopt);
+
+			Assert::IsFalse(z == p);
+			Assert::IsFalse(p == n);
+			Assert::IsFalse(n == z);
+
+			//operator<
+			Assert::IsTrue(nullopt < n);
+			Assert::IsTrue(n < z);
+			Assert::IsTrue(z < p);
+
+			Assert::IsFalse(n < nullopt);
+			Assert::IsFalse(z < nullopt);
+			Assert::IsFalse(p < nullopt);
+
+			Assert::IsFalse(z < n);
+			Assert::IsFalse(p < n);
+			Assert::IsFalse(p < z);
+
+			//operator!=
+			Assert::IsFalse(z != z);
+			Assert::IsFalse(p != p);
+			Assert::IsFalse(n != n);
+			Assert::IsFalse(nullopt != nullopt);
+
+			Assert::IsTrue(z != nullopt);
+			Assert::IsTrue(p != nullopt);
+			Assert::IsTrue(n != nullopt);
+
+			Assert::IsTrue(z != p);
+			Assert::IsTrue(p != n);
+			Assert::IsTrue(n != z);
+
+			//operator>
+			Assert::IsFalse(nullopt > n);
+			Assert::IsFalse(n > z);
+			Assert::IsFalse(z > p);
+
+			Assert::IsTrue(n > nullopt);
+			Assert::IsTrue(z > nullopt);
+			Assert::IsTrue(p > nullopt);
+
+			Assert::IsTrue(z > n);
+			Assert::IsTrue(p > n);
+			Assert::IsTrue(p > z);
+
+			//operator<=
+			Assert::IsTrue(nullopt <= n);
+			Assert::IsTrue(n <= z);
+			Assert::IsTrue(z <= p);
+
+			Assert::IsFalse(n <= nullopt);
+			Assert::IsFalse(z <= nullopt);
+			Assert::IsFalse(p <= nullopt);
+
+			Assert::IsFalse(z <= n);
+			Assert::IsFalse(p <= n);
+			Assert::IsFalse(p <= z);
+
+			Assert::IsTrue(z <= z);
+			Assert::IsTrue(p <= p);
+			Assert::IsTrue(n <= n);
+			Assert::IsTrue(nullopt <= nullopt);
+
+			//operator<=
+			Assert::IsFalse(nullopt >= n);
+			Assert::IsFalse(n >= z);
+			Assert::IsFalse(z >= p);
+
+			Assert::IsTrue(n >= nullopt);
+			Assert::IsTrue(z >= nullopt);
+			Assert::IsTrue(p >= nullopt);
+
+			Assert::IsTrue(z >= n);
+			Assert::IsTrue(p >= n);
+			Assert::IsTrue(p >= z);
+
+			Assert::IsTrue(z >= z);
+			Assert::IsTrue(p >= p);
+			Assert::IsTrue(n >= n);
+			Assert::IsTrue(nullopt >= nullopt);
+		}
+
+		TEST_METHOD(optional_compare_nullopt_test) {
+			constexpr lstl::optional<int> n = -1;
+			constexpr lstl::optional<int> nullopt{};
+
+			//operator==
+			Assert::IsFalse(n == lstl::nullopt);
+			Assert::IsTrue(nullopt == lstl::nullopt);
+			Assert::IsFalse(lstl::nullopt == n);
+			Assert::IsTrue(lstl::nullopt == nullopt);
+
+			//operator<
+			Assert::IsFalse(n < lstl::nullopt);
+			Assert::IsFalse(nullopt < lstl::nullopt);
+			Assert::IsTrue(lstl::nullopt < n);
+			Assert::IsFalse(lstl::nullopt < nullopt);
+
+			//operator!=
+			Assert::IsTrue(n != lstl::nullopt);
+			Assert::IsFalse(nullopt != lstl::nullopt);
+			Assert::IsTrue(lstl::nullopt != n);
+			Assert::IsFalse(lstl::nullopt != nullopt);
+
+			//operator>
+			Assert::IsTrue(n > lstl::nullopt);
+			Assert::IsFalse(nullopt > lstl::nullopt);
+			Assert::IsFalse(lstl::nullopt > n);
+			Assert::IsFalse(lstl::nullopt > nullopt);
+
+			//operator<=
+			Assert::IsFalse(n <= lstl::nullopt);
+			Assert::IsTrue(nullopt <= lstl::nullopt);
+			Assert::IsTrue(lstl::nullopt <= n);
+			Assert::IsTrue(lstl::nullopt <= nullopt);
+
+			//operator>=
+			Assert::IsTrue(n >= lstl::nullopt);
+			Assert::IsTrue(nullopt >= lstl::nullopt);
+			Assert::IsFalse(lstl::nullopt >= n);
+			Assert::IsTrue(lstl::nullopt >= nullopt);
+		}
+
+		TEST_METHOD(optional_compare_T_test) {
+			constexpr lstl::optional<int> z = 0;
+			constexpr lstl::optional<int> nullopt{};
+
+			//operator==
+			Assert::IsTrue(z == 0);
+			Assert::IsTrue(0 == z);
+			Assert::IsFalse(nullopt == 0);
+			Assert::IsFalse(0 == nullopt);
+
+			Assert::IsFalse(z == 1);
+			Assert::IsFalse(1 == z);
+			Assert::IsFalse(z == -1);
+			Assert::IsFalse(-1 == z);
+
+			//operator<
+			Assert::IsFalse(z < 0);
+			Assert::IsFalse(0 < z);
+			Assert::IsTrue(nullopt < 0);
+			Assert::IsFalse(0 < nullopt);
+
+			Assert::IsTrue(z < 1);
+			Assert::IsFalse(1 < z);
+			Assert::IsFalse(z < -1);
+			Assert::IsTrue(-1 < z);
+
+			//operator!=
+			Assert::IsFalse(z != 0);
+			Assert::IsFalse(0 != z);
+			Assert::IsTrue(nullopt != 0);
+			Assert::IsTrue(0 != nullopt);
+
+			Assert::IsTrue(z != 1);
+			Assert::IsTrue(1 != z);
+			Assert::IsTrue(z != -1);
+			Assert::IsTrue(-1 != z);
+
+			//operator>
+			Assert::IsFalse(z > 0);
+			Assert::IsFalse(0 > z);
+			Assert::IsFalse(nullopt > 0);
+			Assert::IsTrue(0 > nullopt);
+
+			Assert::IsFalse(z > 1);
+			Assert::IsTrue(1 > z);
+			Assert::IsTrue(z > -1);
+			Assert::IsFalse(-1 > z);
+
+			//operator<=
+			Assert::IsTrue(z <= 0);
+			Assert::IsTrue(0 <= z);
+			Assert::IsTrue(nullopt <= 0);
+			Assert::IsFalse(0 <= nullopt);
+
+			Assert::IsTrue(z <= 1);
+			Assert::IsFalse(1 <= z);
+			Assert::IsFalse(z <= -1);
+			Assert::IsTrue(-1 <= z);
+
+			//operator>=
+			Assert::IsTrue(z >= 0);
+			Assert::IsTrue(0 >= z);
+			Assert::IsFalse(nullopt >= 0);
+			Assert::IsTrue(0 >= nullopt);
+
+			Assert::IsFalse(z >= 1);
+			Assert::IsTrue(1 >= z);
+			Assert::IsTrue(z >= -1);
+			Assert::IsFalse(-1 >= z);
+		}
 	};
 }
