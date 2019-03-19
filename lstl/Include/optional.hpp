@@ -110,6 +110,10 @@ namespace lstl {
 		*/
 		template<typename T>
 		using is_trivially_swappable = std::conjunction<std::is_trivially_destructible<T>, std::is_trivially_move_constructible<T>, std::is_trivially_move_assignable<T>, no_adl_swap_impl::no_adl_swap<T>>;
+
+
+		template<typename F, typename... Args>
+		using invoke_result_t = std::decay_t<decltype(std::invoke(std::declval<F>(), std::declval<Args>()...))>;
 	}
 
 #if defined(_MSC_VER) && _MSC_VER == 1900
@@ -750,6 +754,170 @@ namespace lstl {
 		void swap(optional<U>& rhs) noexcept(std::conjunction<std::is_nothrow_move_constructible<T>, is_nothrow_swappable<T>>::value) {
 			//効率的なswapを選択するために、base_storageへ投げる
 			swap_impl(rhs);
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値はvoidでないこと
+		* @param func 適用するINVOKE可能な関数
+		* @return 有効値を保持する場合、f(this->value())の戻り値をoptionalで包んで返す、そうでないならnullopt
+		*/
+		template<typename F>
+		auto transform(F&& func) & noexcept(noexcept(func(m_value))) -> optional<optional_traits::invoke_result_t<F, T>> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(m_value));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値はvoidでないこと
+		* @param func 適用するINVOKE可能な関数
+		* @return 有効値を保持する場合、f(this->value())の戻り値をoptionalで包んで返す、そうでないならnullopt
+		*/
+		template<typename F>
+		constexpr auto transform(F&& func) const & noexcept(noexcept(func(m_value))) -> optional<optional_traits::invoke_result_t<F, T>> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(m_value));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値はvoidでないこと
+		* @param func 適用するINVOKE可能な関数
+		* @return 有効値を保持する場合、f(std::move(this->value()))の戻り値をoptionalで包んで返す、そうでないならnullopt
+		*/
+		template<typename F>
+		auto transform(F&& func) && noexcept(noexcept(func(std::move(m_value)))) -> optional<optional_traits::invoke_result_t<F, T>> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(std::move(m_value)));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値はvoidでないこと
+		* @param func 適用するINVOKE可能な関数
+		* @return 有効値を保持する場合、f(std::move(this->value()))の戻り値をoptionalで包んで返す、そうでないならnullopt
+		*/
+		template<typename F>
+		constexpr auto transform(F&& func) const && noexcept(noexcept(func(std::move(m_value)))) -> optional<optional_traits::invoke_result_t<F, T>> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(std::move(m_value)));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値が何らかのoptionalであること
+		* @param func 適用するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、f(this->value())、そうでないならnullopt
+		*/
+		template<typename F>
+		auto and_then(F&& func) & noexcept(noexcept(func(m_value))) -> optional_traits::invoke_result_t<F, T> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(m_value));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値が何らかのoptionalであること
+		* @param func 適用するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、f(this->value())、そうでないならnullopt
+		*/
+		template<typename F>
+		constexpr auto and_then(F&& func) const & noexcept(noexcept(func(m_value))) -> optional_traits::invoke_result_t<F, T> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(m_value));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値が何らかのoptionalであること
+		* @param func 適用するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、f(std::move(this->value()))、そうでないならnullopt
+		*/
+		template<typename F>
+		auto and_then(F&& func) && noexcept(noexcept(func(std::move(m_value)))) -> optional_traits::invoke_result_t<F, T> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(std::move(m_value)));
+		}
+
+		/**
+		* @brief 中身に関数を適用しその結果をoptionalで返す
+		* @detail 渡される関数の戻り値が何らかのoptionalであること
+		* @param func 適用するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、f(this->value())、そうでないならnullopt
+		*/
+		template<typename F>
+		constexpr auto and_then(F&& func) const && noexcept(noexcept(func(std::move(m_value)))) -> optional_traits::invoke_result_t<F, T> {
+			return (m_has_value == false)
+				? (nullopt)
+				: (func(std::move(m_value)));
+		}
+
+		/**
+		* @brief 中身がない時に関数を実行しその結果のoptionalを返す
+		* @detail 渡される関数の戻り値が同じoptionalかvoidであること
+		* @param func 実行するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、*this、そうでないならfunc()
+		*/
+		template<typename F>
+		optional or_else(F&& func) & noexcept(noexcept(func())) {
+			return (m_has_value == true)
+				? (*this)
+				: ((std::is_void<optional_traits::invoke_result_t<F>>::value)
+					? (func(), nullopt)
+					: (func()));
+		}
+
+		/**
+		* @brief 中身がない時に関数を実行しその結果のoptionalを返す
+		* @detail 渡される関数の戻り値が同じoptionalかvoidであること
+		* @param func 実行するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、*this、そうでないならfunc()
+		*/
+		template<typename F>
+		constexpr optional or_else(F&& func) const & noexcept(noexcept(func())) {
+			return (m_has_value == true)
+				? (*this)
+				: ((std::is_void<optional_traits::invoke_result_t<F>>::value)
+					? (func(), nullopt)
+					: (func()));
+		}
+
+		/**
+		* @brief 中身がない時に関数を実行しその結果のoptionalを返す
+		* @detail 渡される関数の戻り値が同じoptionalかvoidであること
+		* @param func 実行するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、std::move(*this)、そうでないならfunc()
+		*/
+		template<typename F>
+		optional or_else(F&& func) && noexcept(noexcept(func())) {
+			return (m_has_value == true)
+				? std::move(*this)
+				: ((std::is_void<optional_traits::invoke_result_t<F>>::value)
+					? (func(), nullopt)
+					: (func()));
+		}
+
+		/**
+		* @brief 中身がない時に関数を実行しその結果のoptionalを返す
+		* @detail 渡される関数の戻り値が同じoptionalかvoidであること
+		* @param func 実行するINVOKE可能な関数（戻り値がoptionalであること）
+		* @return 有効値を保持する場合、std::move(*this)、そうでないならfunc()
+		*/
+		template<typename F>
+		constexpr optional or_else(F&& func) const && noexcept(noexcept(func())) {
+			return (m_has_value == true)
+				? std::move(*this)
+				: ((std::is_void<optional_traits::invoke_result_t<F>>::value)
+					? (func(), nullopt)
+					: (func()));
 		}
 
 		constexpr const T* operator->() const {
