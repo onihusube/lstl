@@ -226,7 +226,7 @@ namespace lstl {
 	};
 
 	/**
-	* @brief スコープを抜けるとき、例外が投げられていなければ登録関数を実行するクラス
+	* @brief スコープを抜けるとき、例外が投げられている場合に登録関数を実行するクラス
 	* @tparam ExitFunctor 任意の関数呼び出し可能な型
 	*/
 	template<typename ExitFunctor>
@@ -237,7 +237,7 @@ namespace lstl {
 	};
 
 	/**
-	* @brief スコープを抜けるとき、例外が投げられている場合に登録関数を実行するクラス
+	* @brief スコープを抜けるとき、例外が投げられていなければ登録関数を実行するクラス
 	* @tparam ExitFunctor 任意の関数呼び出し可能な型
 	*/
 	template<typename ExitFunctor>

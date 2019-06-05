@@ -763,7 +763,7 @@ namespace lstl {
 		* @return 有効値を保持する場合、f(this->value())の戻り値をoptionalで包んで返す、そうでないならnullopt
 		*/
 		template<typename F>
-		auto transform(F&& func) & noexcept(noexcept(func(m_value))) -> optional<optional_traits::invoke_result_t<F, T>> {
+		auto transform(F&& func) & noexcept(noexcept(func(m_value))) -> optional_traits::invoke_result_t<F, T> {
 			return (m_has_value == false)
 				? (nullopt)
 				: (func(m_value));
@@ -776,7 +776,7 @@ namespace lstl {
 		* @return 有効値を保持する場合、f(this->value())の戻り値をoptionalで包んで返す、そうでないならnullopt
 		*/
 		template<typename F>
-		constexpr auto transform(F&& func) const & noexcept(noexcept(func(m_value))) -> optional<optional_traits::invoke_result_t<F, T>> {
+		constexpr auto transform(F&& func) const & noexcept(noexcept(func(m_value))) -> optional_traits::invoke_result_t<F, T> {
 			return (m_has_value == false)
 				? (nullopt)
 				: (func(m_value));
@@ -789,7 +789,7 @@ namespace lstl {
 		* @return 有効値を保持する場合、f(std::move(this->value()))の戻り値をoptionalで包んで返す、そうでないならnullopt
 		*/
 		template<typename F>
-		auto transform(F&& func) && noexcept(noexcept(func(std::move(m_value)))) -> optional<optional_traits::invoke_result_t<F, T>> {
+		auto transform(F&& func) && noexcept(noexcept(func(std::move(m_value)))) -> optional_traits::invoke_result_t<F, T> {
 			return (m_has_value == false)
 				? (nullopt)
 				: (func(std::move(m_value)));
@@ -802,7 +802,7 @@ namespace lstl {
 		* @return 有効値を保持する場合、f(std::move(this->value()))の戻り値をoptionalで包んで返す、そうでないならnullopt
 		*/
 		template<typename F>
-		constexpr auto transform(F&& func) const && noexcept(noexcept(func(std::move(m_value)))) -> optional<optional_traits::invoke_result_t<F, T>> {
+		constexpr auto transform(F&& func) const && noexcept(noexcept(func(std::move(m_value)))) -> optional_traits::invoke_result_t<F, T> {
 			return (m_has_value == false)
 				? (nullopt)
 				: (func(std::move(m_value)));
